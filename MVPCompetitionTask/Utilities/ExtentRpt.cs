@@ -1,14 +1,4 @@
-﻿using AventStack.ExtentReports.Reporter.Configuration;
-using AventStack.ExtentReports.Reporter;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using AventStack.ExtentReports;
-using System.IO;
-
-namespace MVPCompetitionTask;
+﻿namespace MVPCompetitionTask;
 
 public interface IExtentRpt
 {

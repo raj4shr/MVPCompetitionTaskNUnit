@@ -1,17 +1,9 @@
-﻿using AventStack.ExtentReports;
-using ExcelDataReader;
-using System;
-using System.Collections.Generic;
-using System.Data;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace MVPCompetitionTask;
+﻿namespace MVPCompetitionTask;
 
 public class LoginToPortalPage : CommonDriver,IExtentRpt
 {
-    private CommonSendKeysAndClickElements findElements;
+    private CommonSendKeysAndClickElements elementInteractions;
+    CommonDriver commonDriver = new CommonDriver();
     private ExtentTest test;
     private ExtentReports testReport;
     private IExcelDataReader reader;
@@ -20,61 +12,96 @@ public class LoginToPortalPage : CommonDriver,IExtentRpt
     private DataTable dataTable;
     private string filePath,userName,password;
 
+    //Element repository for POM design pattern
+    private readonly By signInBtn = By.ClassName("item");
+    private readonly By userNameInputBox = By.Name("email");
+    private readonly By passwordInputBox=By.Name("password");
+    private readonly By loginBtn = By.XPath("//button[text()='Login']");
+    private readonly By signOutBtn = By.XPath("//button[text()='Sign Out']");
     
     public LoginToPortalPage()
     {
-        driver=new ChromeDriver();
-        findElements = new CommonSendKeysAndClickElements();
+        commonDriver.InitDriver();
+        elementInteractions = new CommonSendKeysAndClickElements();
         //Creating a test report
-        testReport = IExtentRpt.testReport;
-        test = IExtentRpt.testReport.CreateTest("Test_LoginToPortal" + DateTime.Now.ToString("_hhmmss")).Info("Login Test");
+        this.testReport = IExtentRpt.testReport;
+        test = testReport.CreateTest("Test_LoginToPortal" + DateTime.Now.ToString("_hhmmss")).Info("Login Test");
     }
+
     public void LogintoPortal()
     {
-        //Opening up MVP portal running on docker image
-        driver.Navigate().GoToUrl("http://localhost:5000/");
         test.Log(Status.Info, "Navigate to Url");
-        driver.Manage().Window.Maximize();
         //Clicking on sign in button
-        findElements.clickOnElement(nameof(By.ClassName), "item");
+        elementInteractions.ClickElement(signInBtn);
         test.Log(Status.Info, "Click on Sign In");
         //Signing in method with valid credentials
         EnterLoginDetails();
     }
 
+    public void EnterUserName()
+    {
+        elementInteractions.SendKeysToElement(userNameInputBox, userName);
+    }
+
+    public void EnterPassword()
+    {
+        elementInteractions.SendKeysToElement(passwordInputBox, password);
+    }
+
+    public void ClickOnLoginButoon()
+    {
+        elementInteractions.ClickElement(loginBtn);
+    }
+
+    public void CloseFileStream()
+    {
+        //Closing file streams
+        fileStream.Close();
+        reader.Close();
+    }
+
+    public void ExcelReadDataForLoginCredentials()
+    {
+        //Path to the excel file with login credentials
+        filePath = @"C:\MVPCompetionTask2NUnit\MVPCompetitionTaskNUnit\MVPCompetitionTask\LoginCred.xlsx";
+        //Encoding excel file stream
+        System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
+        //Reading login credentials from excel file to be used in login page
+        fileStream = File.Open(filePath, FileMode.Open, FileAccess.Read);
+        reader = ExcelReaderFactory.CreateOpenXmlReader(fileStream);
+        //Getting the excel file as a dataset
+        dataSet = reader.AsDataSet();
+        //Since only 1 sheet is in the excel file, index 0 is taken
+        dataTable = dataSet.Tables[0];
+        userName = dataTable.Rows[1][0].ToString();
+        password = dataTable.Rows[1][1].ToString();
+    }
+
     public void EnterLoginDetails()
-    {   
-        try
-        {
-            filePath = @"C:\MVPCompetionTask2NUnit\MVPCompetitionTaskNUnit\MVPCompetitionTask\LoginCred.xlsx";
-            //Encoding excel file stream
-            System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
+    {
+        //Getting login credentials from excel file using excel data reader
+        ExcelReadDataForLoginCredentials();
+        elementInteractions.TakeScreenShot();
+        //Sending user name and password
+        EnterUserName();
+        EnterPassword();
+        test.Log(Status.Info, "Send username and password credentials");
+        //Click on login button
+        ClickOnLoginButoon();
+        test.Log(Status.Info, "Login Button Clicked");
+        //Login successful assertion
+        LoginSuccessful();
+        CloseFileStream();
+    }
 
-            //Reading login credentials from excel file to be used in login page
-            fileStream = File.Open(filePath, FileMode.Open, FileAccess.Read);
-            reader=ExcelReaderFactory.CreateOpenXmlReader(fileStream);
-            dataSet=reader.AsDataSet();
-            dataTable=dataSet.Tables[0];
-            userName = dataTable.Rows[1][0].ToString();
-            password = dataTable.Rows[1][1].ToString();
-
-            findElements.TakeScreenShot();
-            //Finding and interacting with elements using my custom common methods
-            findElements.sendKeysToElement(nameof(By.Name), "email", userName);
-            findElements.sendKeysToElement(nameof(By.Name), "password", password);
-            test.Log(Status.Info, "Send username and password credentials");
-            findElements.clickOnElement(nameof(By.XPath), "//button[text()='Login']");
-            test.Log(Status.Info, "Login Button Clicked");
+    public void LoginSuccessful()
+    {
+        //If sighout button is visible then login sucessful
+        if(elementInteractions.ElementIsDisplayed(signOutBtn))
             test.Log(Status.Pass, "Test Passed");
-
-            //Closing file streams
-            fileStream.Close();
-            reader.Close();
-        }
-        catch
-        {
+        else
             test.Log(Status.Fail, "Test Failed");
-            throw;
-        }
+        //Login successful assertion 
+        elementInteractions.ElementIsDisplayed(signOutBtn).Should().BeTrue();
     }
 }
